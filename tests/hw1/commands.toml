@@ -1,0 +1,13 @@
+image = "../../image/build/minimum.img"
+boot_rom = "../../bootloader/bootloader.bin"
+max_ticks = 1200000
+
+[[inputs]]
+at_tick = 300000
+uart = 0
+data = "   \necho\n  echo   hi  there\n  mystery argument\n"
+
+[assert]
+uart0_contains = "msh> msh> \nmsh> hi  there\nmsh> command not found: mystery\nmsh> "
+execution_lifecycle = "paused"
+shutdown_lifecycle = "stopped"

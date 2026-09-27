@@ -1,4 +1,6 @@
 #include "minemu/boot.h"
+#include "minemu/irq.h"
+#include "minemu/shell.h"
 #include "minemu/trap.h"
 #include "minemu/trace.h"
 #include "minemu/uart.h"
@@ -17,5 +19,7 @@ void minemu_kernel_main(const struct minemu_boot_info *boot_info) {
     }
     minemu_trace_event(1);
     minemu_uart_puts("hello world\n");
-    minemu_fail_stop();
+    minemu_uart_enable_rx();
+    minemu_irq_enable();
+    minemu_shell_run();
 }
