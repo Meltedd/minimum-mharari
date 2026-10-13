@@ -1,0 +1,15 @@
+image = "../../image/build/minimum.img"
+boot_rom = "../../bootloader/bootloader.bin"
+max_ticks = 2000000
+
+[[inputs]]
+at_tick = 300000
+uart = 0
+data = "\b\u007fechx\bo one\nechx\u007fo two\n   \necho\necho   a  b  \nbogus argument\necho 12345678901234567890\necho 123456789012345678901\necho ok\n"
+
+[assert]
+# echo separates words with one space and skips trailing spaces
+uart0_contains = "msh> one\nmsh> two\nmsh> msh> \nmsh> a b\nmsh> command not found: bogus\nmsh> 12345678901234567890\nmsh> msh> ok\nmsh> "
+execution_lifecycle = "paused"
+shutdown_lifecycle = "stopped"
+mmu_enabled = true

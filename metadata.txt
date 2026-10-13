@@ -9,5 +9,7 @@ ai:
   - setup and planning
   - research on ARM SVC, MMU permissions, and the variadic ioctl interface
   - user-mode loader and ioctl implementation and testing
+  - moving the HW1 shell to user mode and checking the assignment requirements
+  - report drafting
 
 pledge: I pledge on my honor that I have abided by the Stevens Honor System.
