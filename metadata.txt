@@ -7,5 +7,7 @@ collaborators:
 ai:
 - gpt-6.1-sol:
   - setup and planning
+  - research on ARM SVC, MMU permissions, and the variadic ioctl interface
+  - user-mode loader and ioctl implementation and testing
 
 pledge: I pledge on my honor that I have abided by the Stevens Honor System.

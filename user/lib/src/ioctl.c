@@ -18,29 +18,23 @@ static int32_t ioctl_svc(int fd, uint32_t request, uint32_t argument0,
     return (int32_t)r0;
 }
 
-int32_t ioctl(int fd, uint32_t request, ...) {
+int ioctl(int fd, int op, ...) {
     uint32_t argument0 = 0;
     uint32_t argument1 = 0;
     va_list arguments;
 
-    va_start(arguments, request);
-    switch (request) {
-    case MINEMU_IOCTL_UART_READ:
-    case MINEMU_IOCTL_UART_WRITE:
+    va_start(arguments, op);
+    if ((fd == MINEMU_FD_UART0 || fd == MINEMU_FD_UART1) &&
+        (op == MINEMU_IOCTL_UART_READ || op == MINEMU_IOCTL_UART_WRITE)) {
         argument0 = (uint32_t)(uintptr_t)va_arg(arguments, void *);
-        argument1 = va_arg(arguments, uint32_t);
-        break;
-    case MINEMU_IOCTL_RNG_NEXT:
-    case MINEMU_IOCTL_RNG_STATE:
-        argument0 = (uint32_t)(uintptr_t)va_arg(arguments, uint32_t *);
-        break;
-    case MINEMU_IOCTL_RNG_SEED:
-    case MINEMU_IOCTL_TRACE_EVENT:
-        argument0 = va_arg(arguments, uint32_t);
-        break;
-    default:
-        break;
+        argument1 = (uint32_t)va_arg(arguments, int);
+    } else if (fd == MINEMU_FD_RNG &&
+               (op == MINEMU_IOCTL_RNG_NEXT || op == MINEMU_IOCTL_RNG_STATE)) {
+        argument0 = (uint32_t)(uintptr_t)va_arg(arguments, unsigned int *);
+    } else if ((fd == MINEMU_FD_RNG && op == MINEMU_IOCTL_RNG_SEED) ||
+               (fd == MINEMU_FD_TRACE && op == MINEMU_IOCTL_TRACE_EVENT)) {
+        argument0 = va_arg(arguments, unsigned int);
     }
     va_end(arguments);
-    return ioctl_svc(fd, request, argument0, argument1);
+    return ioctl_svc(fd, (uint32_t)op, argument0, argument1);
 }

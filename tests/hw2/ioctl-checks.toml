@@ -1,0 +1,22 @@
+image = "fixtures/ioctl-checks/build/hw2-ioctl-checks.img"
+boot_rom = "../../bootloader/bootloader.bin"
+max_ticks = 2000000
+
+[[inputs]]
+at_tick = 300000
+uart = 0
+data = "AB"
+
+[[inputs]]
+at_tick = 310000
+uart = 1
+data = "CD"
+
+[assert]
+uart0_contains = "uart0\n"
+uart1_contains = "uart1\n"
+execution_lifecycle = "paused"
+shutdown_lifecycle = "stopped"
+mmu_enabled = true
+cpu_mode = "user"
+trace_values = [0x49220001]
