@@ -1,13 +1,11 @@
-hw: 1
+hw: 2
 name: Max Harari
 email: mharari@stevens.edu
 github: https://github.com/Meltedd/minimum-mharari
 collaborators:
 - Quinn Gainey (qgainey@stevens.edu)
 ai:
-- gpt-6-sol:
+- gpt-6.1-sol:
   - setup and planning
-  - UART, IRQ, and shell implementation and testing
-  - report drafting
 
 pledge: I pledge on my honor that I have abided by the Stevens Honor System.
