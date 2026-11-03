@@ -6,5 +6,5 @@
 **/*.elf
 **/*.map
 **/*.img
-chatlogs-hw1/
-chatlogs-hw2/
+chatlogs-hw*/
+hw3/edf
