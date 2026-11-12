@@ -8,3 +8,12 @@
 **/*.img
 chatlogs-hw*/
 hw3/edf
+hw4/driver/*.ko
+hw4/driver/*.mod
+hw4/driver/*.mod.c
+hw4/driver/.*.cmd
+hw4/driver/Module.symvers
+hw4/driver/modules.order
+hw4/driver/.tmp_versions/
+hw4/src/scull
+hw4/*.zip
