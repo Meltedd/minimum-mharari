@@ -8,7 +8,6 @@ ai:
   - git, GitHub, and environment setup
   - planning the scull IOCTL, linked list, and test-program changes
   - scull driver and user-space test program implementation and testing
-- claude-sonnet-5-5:
   - exporting the chat log
 
 pledge: I pledge on my honor that I have abided by the Stevens Honor System.
