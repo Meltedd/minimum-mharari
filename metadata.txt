@@ -1,13 +1,13 @@
-hw: 3
+hw: 4
 name: Max Harari
 email: mharari@stevens.edu
 collaborators:
 - Quinn Gainey (qgainey@stevens.edu)
 ai:
 - claude-opus-5-5:
-  - git, GitHub, and Linux environment setup
-  - planning the EDF simulation from the assignment rules and examples
-  - edf.c implementation and testing
+  - git, GitHub, and environment setup
+  - planning the scull IOCTL, linked list, and test-program changes
+  - scull driver and user-space test program implementation
 - claude-sonnet-5-5:
   - exporting the chat log
 
