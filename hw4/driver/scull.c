@@ -26,6 +26,9 @@
 #include <linux/cdev.h>
 
 #include <linux/uaccess.h>	/* copy_*_user */
+#include <linux/sched.h>	/* current, task_struct, task_cpu() */
+#include <linux/list.h>		/* kernel linked lists */
+#include <linux/mutex.h>	/* kernel mutex */
 
 #include "scull.h"		/* local definitions */
 
@@ -41,10 +44,60 @@ module_param(scull_major, int, S_IRUGO);
 module_param(scull_minor, int, S_IRUGO);
 module_param(scull_quantum, int, S_IRUGO);
 
-MODULE_AUTHOR("LOGIN");
+MODULE_AUTHOR("mharari");
 MODULE_LICENSE("Dual BSD/GPL");
 
 static struct cdev scull_cdev;		/* Char device structure */
+
+/*
+ * Log of every task (process or thread) that used SCULL_IOCIQUANTUM.
+ * Each node records one unique (pid, tgid) pair; nodes are appended at
+ * the tail, so the list is in first-use order.
+ */
+struct task_node {
+	pid_t pid;
+	pid_t tgid;
+	struct list_head list;	/* links this node into task_list */
+};
+
+/* Head of the list, statically initialized to an empty list */
+static LIST_HEAD(task_list);
+
+/* Protects task_list: several tasks may issue the ioctl concurrently */
+static DEFINE_MUTEX(task_list_lock);
+
+/*
+ * Add the current task to task_list unless its (pid, tgid) pair is
+ * already recorded. If kmalloc fails, log an error and leave the list
+ * unchanged.
+ */
+static void scull_log_current_task(void)
+{
+	struct task_node *node;
+
+	mutex_lock(&task_list_lock);
+
+	/* Look for an existing entry for this task (no duplicates) */
+	list_for_each_entry(node, &task_list, list) {
+		if (node->pid == current->pid && node->tgid == current->tgid)
+			goto unlock;
+	}
+
+	/* Not found: allocate a new node and append it at the end */
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
+	if (!node) {
+		printk(KERN_ERR "scull: kmalloc failed, task %d not logged\n",
+		       current->pid);
+		goto unlock;
+	}
+	node->pid = current->pid;
+	node->tgid = current->tgid;
+	list_add_tail(&node->list, &task_list);
+
+unlock:
+	/* Single exit point, so the mutex is released on every path */
+	mutex_unlock(&task_list_lock);
+}
 
 /*
  * Open and close
@@ -114,6 +167,29 @@ static long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		scull_quantum = arg;
 		return tmp;
 
+	case SCULL_IOCIQUANTUM: /* Info: arg is pointer to a struct task_info */
+	{
+		/* Zero-initialized so no padding bytes leak to user space */
+		struct task_info info = {0};
+
+		/* Record this task in the log list (Part 2) */
+		scull_log_current_task();
+
+		/* Fill the struct from the caller's task_struct / thread_info */
+		info.__state = READ_ONCE(current->__state);
+		info.cpu = task_cpu(current);	/* reads thread_info.cpu */
+		info.prio = current->prio;
+		info.pid = current->pid;
+		info.tgid = current->tgid;
+		info.nvcsw = current->nvcsw;
+		info.nivcsw = current->nivcsw;
+
+		/* Copy the whole struct at once; nonzero means bytes not copied */
+		if (copy_to_user((struct task_info __user *)arg, &info, sizeof(info)))
+			retval = -EFAULT;
+		break;
+	}
+
 	default:  /* redundant, as cmd was checked against MAXNR */
 		return -ENOTTY;
 	}
@@ -139,6 +215,22 @@ struct file_operations scull_fops = {
 static void scull_cleanup_module(void)
 {
 	dev_t devno = MKDEV(scull_major, scull_minor);
+	struct task_node *node, *next;
+	int i = 1;
+
+	/*
+	 * Print every logged task, then unlink and free its node. The _safe
+	 * iterator keeps a pointer to the next node so we can free the
+	 * current one while walking the list. (Empty list: loop does nothing.)
+	 */
+	mutex_lock(&task_list_lock);
+	list_for_each_entry_safe(node, next, &task_list, list) {
+		printk(KERN_INFO "Task %d: PID %d, TGID %d\n",
+		       i++, node->pid, node->tgid);
+		list_del(&node->list);
+		kfree(node);
+	}
+	mutex_unlock(&task_list_lock);
 
 	/* Get rid of the char dev entry */
 	cdev_del(&scull_cdev);

@@ -5,10 +5,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>	/* waitpid() for the 'p' command */
+#include <pthread.h>	/* pthreads for the 't' command */
 
 #include "scull.h"
 
 #define CDEV_NAME "/dev/scull"
+
+/* Number of child processes ('p') or threads ('t') to create */
+#define NUM_WORKERS 4
 
 /* Quantum command line option */
 static int g_quantum;
@@ -24,6 +29,9 @@ static void usage(const char *cmd)
 	       "  Q          Query quantum\n"
 	       "  X <int>    Exchange quantum\n"
 	       "  H <int>    Shift quantum\n"
+	       "  i          Get info about the current task\n"
+	       "  p          Get task info from 4 child processes\n"
+	       "  t          Get task info from 4 threads\n"
 	       "  h          Print this message\n",
 	       cmd);
 }
@@ -57,6 +65,9 @@ static cmd_t parse_arguments(int argc, const char **argv)
 	case 'R':
 	case 'G':
 	case 'Q':
+	case 'i':
+	case 'p':
+	case 't':
 	case 'h':
 		break;
 	default:
@@ -70,6 +81,120 @@ ret:
 		exit((cmd == 'h')? EXIT_SUCCESS : EXIT_FAILURE);
 	}
 	return cmd;
+}
+
+/*
+ * Issue SCULL_IOCIQUANTUM and print the returned task info on one line.
+ * Returns the ioctl result (0 on success).
+ */
+static int do_info(int fd)
+{
+	struct task_info info;
+	int ret;
+
+	ret = ioctl(fd, SCULL_IOCIQUANTUM, &info);
+	if (ret == 0)
+		printf("state %u, cpu %u, prio %d, pid %d, tgid %d, nv %lu, niv %lu\n",
+		       info.__state, info.cpu, info.prio, info.pid, info.tgid,
+		       info.nvcsw, info.nivcsw);
+	return ret;
+}
+
+/*
+ * Work done by each child process / thread: use the info ioctl twice,
+ * reporting any failure. Returns 0 if both ioctls succeeded.
+ */
+static int do_info_twice(int fd)
+{
+	int i, ret = 0;
+
+	for (i = 0; i < 2; i++) {
+		if (do_info(fd) != 0) {
+			perror("ioctl");
+			ret = -1;
+		}
+	}
+	return ret;
+}
+
+/*
+ * 'p' command: create NUM_WORKERS child processes that run concurrently.
+ * All children are forked before the parent waits for any of them. The
+ * children inherit the already-open fd, so the device is opened and closed
+ * only once (by main in the parent).
+ */
+static int do_processes(int fd)
+{
+	pid_t pids[NUM_WORKERS];
+	int i, n = 0, status, ret = 0;
+
+	/* Flush pending output so children don't re-print the parent's buffer */
+	fflush(stdout);
+
+	for (i = 0; i < NUM_WORKERS; i++) {
+		pid_t pid = fork();
+
+		if (pid < 0) {
+			perror("fork");
+			ret = -1;
+			break;
+		}
+		if (pid == 0) {
+			/* Child: two ioctls, then exit without returning to main
+			 * (so it doesn't close the device or print "closed") */
+			int r = do_info_twice(fd);
+
+			fflush(stdout);
+			_exit((r == 0) ? EXIT_SUCCESS : EXIT_FAILURE);
+		}
+		pids[n++] = pid;	/* Parent: remember the child */
+	}
+
+	/* Parent: wait for every child that was created */
+	for (i = 0; i < n; i++) {
+		if (waitpid(pids[i], &status, 0) < 0) {
+			perror("waitpid");
+			ret = -1;
+		} else if (!WIFEXITED(status) || WEXITSTATUS(status) != EXIT_SUCCESS) {
+			ret = -1;
+		}
+	}
+	return ret;
+}
+
+/* Thread body for 't': arg is the address of the open fd */
+static void *thread_fn(void *arg)
+{
+	int fd = *(int *)arg;
+
+	do_info_twice(fd);
+	return NULL;
+}
+
+/*
+ * 't' command: create NUM_WORKERS threads that run concurrently. All
+ * threads are created before the main thread joins any of them. They share
+ * the fd opened once by main.
+ */
+static int do_threads(int *fd)
+{
+	pthread_t threads[NUM_WORKERS];
+	int i, n = 0, err, ret = 0;
+
+	for (i = 0; i < NUM_WORKERS; i++) {
+		err = pthread_create(&threads[n], NULL, thread_fn, fd);
+		if (err != 0) {
+			fprintf(stderr, "pthread_create failed (error %d)\n", err);
+			ret = -1;
+			break;
+		}
+		n++;
+	}
+
+	/* Wait for every thread that was created */
+	for (i = 0; i < n; i++)
+		pthread_join(threads[i], NULL);
+	return ret;
 }
 
 static int do_op(int fd, cmd_t cmd)
@@ -113,6 +238,15 @@ static int do_op(int fd, cmd_t cmd)
 		printf("Quantum shifted, old quantum: %d\n", q);
 		ret = 0;
 		break;
+	case 'i':
+		ret = do_info(fd);
+		break;
+	case 'p':
+		/* Errors are already reported inside, so skip perror below */
+		return do_processes(fd);
+	case 't':
+		/* Pass the address of fd to the threads, as the hint suggests */
+		return do_threads(&fd);
 	default:
 		/* Should never occur */
 		abort();

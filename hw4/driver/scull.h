@@ -32,6 +32,21 @@
 #endif
 
 /*
+ * Information about the calling task, returned to user space by the
+ * SCULL_IOCIQUANTUM command. Filled from the task_struct (and its
+ * thread_info) of the task that issued the ioctl.
+ */
+struct task_info {
+	unsigned int __state; // Task state (0 means running)
+	unsigned int cpu; // CPU running this task (from thread_info)
+	int prio; // Priority
+	pid_t pid; // PID
+	pid_t tgid; // TGID
+	unsigned long nvcsw; // Number of voluntary context switches
+	unsigned long nivcsw; // Number of involuntary context switches
+};
+
+/*
  * Ioctl definitions
  */
 
@@ -55,8 +70,10 @@
 #define SCULL_IOCQQUANTUM _IO(SCULL_IOC_MAGIC,   4)
 #define SCULL_IOCXQUANTUM _IOWR(SCULL_IOC_MAGIC, 5, int)
 #define SCULL_IOCHQUANTUM _IO(SCULL_IOC_MAGIC,   6)
+/* Info: copy a struct task_info about the caller to user space */
+#define SCULL_IOCIQUANTUM _IOR(SCULL_IOC_MAGIC,  7, struct task_info)
 
 /* Do not forget to modify this macro if you add new commands! */
-#define SCULL_IOC_MAXNR 6
+#define SCULL_IOC_MAXNR 7
 
 #endif /* _SCULL_H_ */
