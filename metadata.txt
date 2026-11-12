@@ -7,7 +7,7 @@ ai:
 - claude-opus-5-5:
   - git, GitHub, and environment setup
   - planning the scull IOCTL, linked list, and test-program changes
-  - scull driver and user-space test program implementation
+  - scull driver and user-space test program implementation and testing
 - claude-sonnet-5-5:
   - exporting the chat log
 

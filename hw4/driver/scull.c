@@ -26,7 +26,7 @@
 #include <linux/cdev.h>
 
 #include <linux/uaccess.h>	/* copy_*_user */
-#include <linux/sched.h>	/* current, task_struct, task_cpu() */
+#include <linux/sched.h>	/* current, task_struct */
 #include <linux/list.h>		/* kernel linked lists */
 #include <linux/mutex.h>	/* kernel mutex */
 
@@ -177,7 +177,7 @@ static long scull_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		/* Fill the struct from the caller's task_struct / thread_info */
 		info.__state = READ_ONCE(current->__state);
-		info.cpu = task_cpu(current);	/* reads thread_info.cpu */
+		info.cpu = current->thread_info.cpu;	/* CPU from thread_info */
 		info.prio = current->prio;
 		info.pid = current->pid;
 		info.tgid = current->tgid;
