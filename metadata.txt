@@ -9,8 +9,5 @@ ai:
   - planning the scull IOCTL, linked list, and test-program changes
   - scull driver and user-space test program implementation and testing
   - exporting the chat log
-- claude-fable-5-2:
-  - running the demo commands for the report screenshots
-  - drafting the report
 
 pledge: I pledge on my honor that I have abided by the Stevens Honor System.
